@@ -4,16 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'paper (default, no real orders) or live'
-        required: false
-        default: 'paper'
+        description: 'paper (no real orders) or live'
+        type: choice
+        options:
+          - paper
+          - live
+        required: true
+        default: paper
       qty:
-        description: 'Quantity / lot size'
-        required: false
+        description: 'Quantity / lot size (positive integer)'
+        type: string
+        required: true
         default: '65'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   luxalgo:
@@ -29,22 +34,39 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Validate inputs
+        env:
+          MODE: ${{ inputs.mode }}
+          QTY: ${{ inputs.qty }}
+        run: |
+          case "$MODE" in
+            paper|live) ;;
+            *) echo "Invalid mode: $MODE" >&2; exit 1 ;;
+          esac
+          python -c 'import sys; n = int(sys.argv[1]); sys.exit(0 if 0 < n <= 100000 else 1)' "$QTY"
+
       - name: Run LuxAlgo NIFTY engine
         env:
           UPSTOX_TOKEN: ${{ secrets.UPSTOX_TOKEN }}
           TZ: Asia/Kolkata
+          MODE: ${{ inputs.mode }}
+          QTY: ${{ inputs.qty }}
         run: |
           python -u luxalgo_upstox_production.py \
-            --mode ${{ github.event.inputs.mode || 'paper' }} \
-            --qty ${{ github.event.inputs.qty || '65' }} \
+            --mode "$MODE" \
+            --qty "$QTY" \
             2>&1 | tee luxalgo_console.log
 
-      - name: Commit session logs (always)
+      - name: Upload run logs
         if: always()
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add luxalgo_live_production.log luxalgo_console.log bot_state.json 2>/dev/null || true
-          git diff --cached --quiet || git commit -m "luxalgo: session results $(TZ=Asia/Kolkata date +%F_%H%M)"
-          git pull --rebase -q || true
-          git push || true
+        uses: actions/upload-artifact@v4
+        with:
+          name: luxalgo-run-logs-${{ github.run_id }}
+          path: |
+            luxalgo_live_production.log
+            luxalgo_console.log
+          if-no-files-found: ignore
+          retention-days: 3
