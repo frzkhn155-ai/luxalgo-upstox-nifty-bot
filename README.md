@@ -1,11 +1,16 @@
 # LuxAlgo Upstox NIFTY Options Bot
 
-Production-grade automated trading bot for **NIFTY 50 options** using Upstox API.
+Automated trading bot for **NIFTY 50 options** using Upstox API.
 
 It implements two complementary strategies on **3-minute candles**:
 
 1. **Trendline Breakouts** (LuxAlgo-style "B" labels)
 2. **Support & Resistance Bounces** (mean-reversion)
+
+> **Important:** This repository provides a **local / manual runner**.  
+> GitHub Actions is intended for testing and short paper sessions only —  
+> **not** a reliable always-on production host. For real trading, run the  
+> script on a persistent machine (VPS, home server, Termux with wake-lock, etc.).
 
 ---
 
@@ -23,6 +28,7 @@ It implements two complementary strategies on **3-minute candles**:
 - Stale-bar protection (data gaps > 30s ignored for entries)
 - Paper trading mode
 - Heartbeat logging every 30 seconds
+- Unit tests for resampling logic
 
 ---
 
@@ -40,40 +46,51 @@ pip install -r requirements.txt
 
 ## Token Setup (same secret name as Final repo)
 
-Both repositories now use the **same GitHub secret name**:
-
 | Priority | Source |
 |----------|--------|
 | 1 | `UPSTOX_TOKEN` (GitHub secret / preferred) |
 | 2 | `UPSTOX_ACCESS_TOKEN` (legacy env var) |
 | 3 | `--token` CLI flag |
 
-### Add the secret once
+### Add the secret
 
-1. Go to **Settings → Secrets and variables → Actions** in this repo  
-   (or in the Final repo — same secret name works for both)
+1. Go to **Settings → Secrets and variables → Actions** in **this** repo
 2. Create / update secret named **`UPSTOX_TOKEN`**
 3. Paste your fresh Upstox access token
+
+> Note: GitHub secrets are **per-repository**. Setting the secret only in the Final repo does **not** make it available here.
 
 ---
 
 ## Quick Start
 
-### Local run
+### Local run (recommended for real use)
 
 ```bash
-export UPSTOX_TOKEN="your_token_here"   # preferred
-# or: export UPSTOX_ACCESS_TOKEN="your_token_here"
+export UPSTOX_TOKEN="your_token_here"
 
 python luxalgo_upstox_production.py --mode paper   # test first
 python luxalgo_upstox_production.py --mode live --qty 65
 ```
 
-### GitHub Actions (recommended)
+### GitHub Actions (manual test runner only)
 
-1. Ensure secret `UPSTOX_TOKEN` is set
+1. Ensure secret `UPSTOX_TOKEN` is set in **this** repo
 2. Go to **Actions → LuxAlgo NIFTY Bot → Run workflow**
 3. Choose `paper` or `live` and quantity
+
+Logs are uploaded as workflow artifacts (not committed back to the repo).
+
+---
+
+## Running tests
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Unit tests cover the `Resampler` (OHLC aggregation and stale-gap detection).  
+They do **not** test live broker connectivity, order execution, or strategy profitability.
 
 ---
 
@@ -101,6 +118,7 @@ python luxalgo_upstox_production.py --mode live --qty 65
 - The bot uses product type `"D"` (Delivery/Normal) to avoid MIS restrictions.
 - Force-exit runs at **15:15 IST** regardless of spot feed status.
 - On ambiguous order state the bot **halts** and requires manual inspection.
+- GitHub Actions is **not** a production host — use a persistent machine for live trading.
 
 ---
 
@@ -118,10 +136,12 @@ termux-wake-lock
 | File | Purpose |
 |------|---------|
 | `luxalgo_upstox_production.py` | Main bot |
-| `.github/workflows/luxalgo_nifty.yml` | GitHub Actions runner |
+| `tests/test_resampler.py` | Unit tests for bar resampling |
+| `.github/workflows/luxalgo_nifty.yml` | Manual GitHub Actions runner |
 | `bot_state.json` | Runtime position & trade counter (auto-created) |
 | `luxalgo_live_production.log` | Log file |
 | `requirements.txt` | Dependencies |
+| `.env.example` | Token template |
 
 ---
 
