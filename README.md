@@ -38,24 +38,42 @@ pip install -r requirements.txt
 
 ---
 
+## Token Setup (same secret name as Final repo)
+
+Both repositories now use the **same GitHub secret name**:
+
+| Priority | Source |
+|----------|--------|
+| 1 | `UPSTOX_TOKEN` (GitHub secret / preferred) |
+| 2 | `UPSTOX_ACCESS_TOKEN` (legacy env var) |
+| 3 | `--token` CLI flag |
+
+### Add the secret once
+
+1. Go to **Settings → Secrets and variables → Actions** in this repo  
+   (or in the Final repo — same secret name works for both)
+2. Create / update secret named **`UPSTOX_TOKEN`**
+3. Paste your fresh Upstox access token
+
+---
+
 ## Quick Start
 
-### 1. Get your Upstox Access Token
-Generate a fresh access token from the [Upstox Developer Console](https://account.upstox.com/developer/apps).
-
-### 2. Run (recommended: environment variable)
+### Local run
 
 ```bash
-export UPSTOX_ACCESS_TOKEN="your_token_here"
+export UPSTOX_TOKEN="your_token_here"   # preferred
+# or: export UPSTOX_ACCESS_TOKEN="your_token_here"
+
 python luxalgo_upstox_production.py --mode paper   # test first
-```
-
-### 3. Live trading
-
-```bash
-export UPSTOX_ACCESS_TOKEN="your_token_here"
 python luxalgo_upstox_production.py --mode live --qty 65
 ```
+
+### GitHub Actions (recommended)
+
+1. Ensure secret `UPSTOX_TOKEN` is set
+2. Go to **Actions → LuxAlgo NIFTY Bot → Run workflow**
+3. Choose `paper` or `live` and quantity
 
 ---
 
@@ -100,6 +118,7 @@ termux-wake-lock
 | File | Purpose |
 |------|---------|
 | `luxalgo_upstox_production.py` | Main bot |
+| `.github/workflows/luxalgo_nifty.yml` | GitHub Actions runner |
 | `bot_state.json` | Runtime position & trade counter (auto-created) |
 | `luxalgo_live_production.log` | Log file |
 | `requirements.txt` | Dependencies |
