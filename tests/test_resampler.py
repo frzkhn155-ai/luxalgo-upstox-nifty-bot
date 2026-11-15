@@ -9,19 +9,20 @@ class ResamplerTests(unittest.TestCase):
         start = datetime(2026, 11, 16, 9, 15)
         resampler = Resampler(interval_sec=180, raw_candles=[])
 
-        prices = [100.0, 102.0, 99.0, 101.0, 103.0, 100.0, 102.0,
-                  101.0, 104.0, 98.0]
+        # 9 ticks inside the first 3-minute bar (0s .. 160s)
+        prices = [100.0, 102.0, 99.0, 101.0, 103.0, 100.0, 102.0, 101.0, 104.0]
         for i, price in enumerate(prices):
             emitted = resampler.on_tick(start + timedelta(seconds=20 * i), price)
             self.assertIsNone(emitted)
 
-        emitted = resampler.on_tick(start + timedelta(seconds=180), 101.0)
+        # First tick of the next bar closes the previous one
+        emitted = resampler.on_tick(start + timedelta(seconds=180), 98.0)
         self.assertIsNotNone(emitted)
         self.assertEqual(emitted["time"], start)
         self.assertEqual(emitted["open"], 100.0)
         self.assertEqual(emitted["high"], 104.0)
-        self.assertEqual(emitted["low"], 98.0)
-        self.assertEqual(emitted["close"], 98.0)
+        self.assertEqual(emitted["low"], 99.0)
+        self.assertEqual(emitted["close"], 104.0)
         self.assertFalse(emitted["stale"])
 
     def test_marks_bar_stale_after_long_tick_gap(self):
