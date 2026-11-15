@@ -1,0 +1,50 @@
+name: LuxAlgo NIFTY Bot
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'paper (default, no real orders) or live'
+        required: false
+        default: 'paper'
+      qty:
+        description: 'Quantity / lot size'
+        required: false
+        default: '65'
+
+permissions:
+  contents: write
+
+jobs:
+  luxalgo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 400
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run LuxAlgo NIFTY engine
+        env:
+          UPSTOX_TOKEN: ${{ secrets.UPSTOX_TOKEN }}
+          TZ: Asia/Kolkata
+        run: |
+          python -u luxalgo_upstox_production.py \
+            --mode ${{ github.event.inputs.mode || 'paper' }} \
+            --qty ${{ github.event.inputs.qty || '65' }} \
+            2>&1 | tee luxalgo_console.log
+
+      - name: Commit session logs (always)
+        if: always()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add luxalgo_live_production.log luxalgo_console.log bot_state.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "luxalgo: session results $(TZ=Asia/Kolkata date +%F_%H%M)"
+          git pull --rebase -q || true
+          git push || true
