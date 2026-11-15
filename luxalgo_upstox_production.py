@@ -21,7 +21,8 @@ Changes vs previous version
 6. Orders are verified via order-details; unfilled entries are cancelled.
    Ambiguous order statehalts the bot loudly instead of guessing.
 7. trades_today resets on a new date.
-8. Token stays hard-coded in UPSTOX_ACCESS_TOKEN (env var / --token can override it).
+8. Token is read from env UPSTOX_TOKEN (preferred, same as Final repo)
+   or UPSTOX_ACCESS_TOKEN, or --token CLI flag. Never hard-code tokens.
 
 Termux tips: run `termux-wake-lock` first and disable battery optimization
 for Termux, otherwise Android can cut the network when the screen sleeps.
@@ -51,8 +52,15 @@ STATE_FILE = Path("bot_state.json")
 
 STALE_GAP_SEC = 30  # a bar with a tick gap larger than this is considered unreliable
 
-# Upstox Access Token (prefer env var or --token; do NOT commit real tokens)
-UPSTOX_ACCESS_TOKEN = os.environ.get("UPSTOX_ACCESS_TOKEN", "")
+# Token resolution order (matches Final repo + backward compatible):
+# 1. UPSTOX_TOKEN          (GitHub secret / preferred)
+# 2. UPSTOX_ACCESS_TOKEN   (legacy / local)
+# 3. empty (must be supplied via --token)
+UPSTOX_ACCESS_TOKEN = (
+    os.environ.get("UPSTOX_TOKEN")
+    or os.environ.get("UPSTOX_ACCESS_TOKEN")
+    or ""
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -818,12 +826,16 @@ def main():
     parser.add_argument("--trail-at", type=float, default=8.0, help="Start trailing at +X%% gain")
     parser.add_argument("--giveback", type=float, default=20.0, help="Trailing giveback %%")
     parser.add_argument("--fill-timeout", type=int, default=8, help="Seconds to wait for an order fill")
-    parser.add_argument("--token", default=os.environ.get("UPSTOX_ACCESS_TOKEN") or UPSTOX_ACCESS_TOKEN,
-                        help="Upstox access token (default: the hard-coded UPSTOX_ACCESS_TOKEN constant)")
+    parser.add_argument("--token",
+                        default=os.environ.get("UPSTOX_TOKEN") or os.environ.get("UPSTOX_ACCESS_TOKEN") or UPSTOX_ACCESS_TOKEN,
+                        help="Upstox access token (env: UPSTOX_TOKEN preferred, or UPSTOX_ACCESS_TOKEN)")
 
     args = parser.parse_args()
     if not args.token:
-        parser.error("No Upstox token. Set UPSTOX_ACCESS_TOKEN in the environment (or pass --token)")
+        parser.error(
+            "No Upstox token found. Set the GitHub secret UPSTOX_TOKEN "
+            "(or env UPSTOX_TOKEN / UPSTOX_ACCESS_TOKEN) or pass --token"
+        )
 
     engine = ProductionEngine(args)
     engine.run()
